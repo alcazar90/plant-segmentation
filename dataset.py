@@ -12,6 +12,7 @@
 
 import os
 import re 
+import numpy as np
 import pandas as pd
 
 from PIL import Image
@@ -96,3 +97,9 @@ class PlantDataset(Dataset):
     def get_number_of_masks(self):
         """ Return the number of masks per image """
         return [len(m) for m in self.masks]
+    
+    def get_masks_per_labels(self):
+        """ Return the number of masks per label """
+        get_label = lambda x: re.findall(r"normal-|noise|normal_cut+", x)[0].replace('-', '')
+        out = [get_label(m) for img in self.masks for m in img]
+        return np.unique(out, return_counts=True)
