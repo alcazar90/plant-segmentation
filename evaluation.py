@@ -9,6 +9,44 @@ import torch.nn.functional as F
 from utils import upscale_logits, flatten_logits
 
 
+def compute_intersection_over_union(logits, targets, eps=1e-6):
+    """ 
+    Compute the intersection over union between the logits and the targets
+
+    B: batch size
+    C: number of classes
+    H: height of the image
+    W: width of the image
+
+    Args:
+        logits: torch.tensor with shape (B, C, H, W) containing the logits 
+            return by the model
+        targets: torch.tensor with shape (B, C, H, W) containing the targets
+            return by the DataLoader format
+
+    Returns: a float with the ratio of intersection over union
+    """
+    # eliminar grafo de gradiente y pasar a cpu
+    preds = upscale_logits(logits.detach().cpu())
+    targets = targets.detach().cpu()
+
+    # normalizar logits y obtener probabilidades
+    preds = torch.argmax(torch.softmax(preds, dim=1), dim=1)
+
+    # colapsar los canales del target en uno solo, de multiples one-hot channels
+    # a un solo canal con valores enteros
+    targets = torch.argmax(targets, dim=1)
+
+    # computar intersección y unión entre conjuntos de prediccion y targets
+    intersection = torch.logical_and(preds, targets)
+    union = torch.logical_or(preds, targets)
+
+    # computar ratio de intersección sobre la unión 
+    iou = (torch.div(torch.sum(intersection, dim=(1,2)) + eps, 
+                     (torch.sum(union, dim=(1,2)) + eps)).sum() / logits.shape[0]).item()
+
+    return iou
+
 def validate_model(model, valid_dl, loss_fn, log_images=False, num_classes=2):
   """Compute performance of the model on the validation dataset and log a wandb.Table"""
   #cmap = plt.get_cmap('viridis')
