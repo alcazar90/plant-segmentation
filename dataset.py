@@ -15,6 +15,8 @@ import re
 import numpy as np
 import pandas as pd
 
+import torch
+
 from PIL import Image
 from torch.utils.data import Dataset
 from utils import extract_ids_from_name, extract_tag_from_name
@@ -103,3 +105,64 @@ class PlantDataset(Dataset):
         get_label = lambda x: re.findall(r"normal-|noise|normal_cut+", x)[0].replace('-', '')
         out = [get_label(m) for img in self.masks for m in img]
         return np.unique(out, return_counts=True)
+
+
+
+def get_target(masks, labels, tfms, size=(250, 250), num_classes=4):
+    """ 
+        Recibe una lista de máscaras y una lista de etiquetas, retorna
+        un tensor de dimensiones (n_classes, height, widht). En cada clase,
+        cualquier entero distinto a 0 representa a uns instancia particular
+        de la clase. El entero 0 se reserva para background/no-clase.
+    """
+    # creamos tensor para almacenar máscaras por clase en cada canal (dim 1)
+    # NOTA: la última es ausencia o ninguna detecctión 
+    out = torch.zeros((1, num_classes, size[0], size[1]))
+
+    # si no hay máscaras, retornamos el tensor
+    if len(masks) == 0:
+        return out
+
+    # crear un entero que represente cada instancia de las mascaras asociadas
+    # a la observación. No siguen un orden necesario tipo todas las de la clase 0
+    # parten al principio, se encuentran según el orden de los labels. El entero
+    # 0 se reserva como background/no-clase
+    instance_idxs = torch.tensor([l+1 for l in range(len(labels))], dtype=torch.long)
+
+    # iteramos sobre cada clase para procesar las máscaras asociadas a estas,
+    # agregar un identificador de instancias y colapsar en una sola matriz
+    # Supuesto: no hay clase sobrelapadas. Si hay, se debe hacer un proceso
+    # adicional para ver que entero se asigna al pixel correspondiente
+    for l in list(set(labels)):
+        x = torch.cat([torch.where(tfms(Image.open(m).resize(size)) > 0.0, 1.0, 0.0) * instance_idxs[i] for i, m in enumerate(masks) if labels[i] == l])
+        out[0, l, :, :] = x.sum(dim=0)
+
+    return out
+
+
+
+def get_binary_target(masks, labels, tfms, size=(250, 250)):
+    """ 
+        Recibe una lista de máscaras y una lista de etiquetas, retorna
+        un tensor de dimensiones (1, height, width). La clase target_id
+        se identificar con el entero 1, el resto es representado por
+        el entero 0 (es decir background o noise)
+
+        label 0 -> "normal" (ver dataset._id2label con mapping id - etiqueta)
+    """
+    target_id = 0
+    out = torch.zeros((1, 1, size[0], size[1]))
+
+    # si no hay máscaras o la clase a detectar no tiene máscara, retornamos el tensor
+    if len(masks) == 0 or target_id not in (labels):
+        return out
+    
+    target_masks_idx = np.where(np.array(labels) == target_id)[0]
+
+    target_masks=[]
+    for idx in target_masks_idx:
+        target_masks.append(torch.where(tfms(Image.open(masks[idx]).resize(size)) > 0.0, 1.0, 0.0))
+    out[0,0,:,:] = torch.where(torch.cat(target_masks).sum(dim=0) > 0.0, 1.0, 0.0)
+    return out
+
+

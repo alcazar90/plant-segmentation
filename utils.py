@@ -2,7 +2,9 @@ import re
 import os
 import random
 import torch
+import torchvision
 import numpy as np
+import matplotlib.pyplot as plt 
 import torch.nn as nn
 from PIL import Image
 
@@ -69,3 +71,22 @@ def set_seed(seed: int = 42313988) -> None:
     torch.backends.cudnn.benchmark = False
     os.environ["PYTHONHASHSEED"] = str(seed)
     print(f"Random seed set as {seed}")
+
+
+def display_batch_masks(bmasks, caption=None):
+    """
+        Display a batch of images with their predicted masks in a grid.
+
+        bmasks.shape -> (B, H, W)
+    """
+    grid = torchvision.utils.make_grid(
+        bmasks,
+        nrow=bmasks.shape[0],
+        padding=8,
+        pad_value=90
+    )
+    fig = plt.figure(figsize=(16, 12))
+    plt.imshow(np.uint8(grid.permute(1,2,0).numpy()) * 255, cmap='Greys');
+    plt.axis('off');
+    if caption:
+        plt.title(caption);
