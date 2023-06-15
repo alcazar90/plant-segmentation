@@ -2,11 +2,68 @@ import wandb
 
 import matplotlib.pyplot as plt
 
+from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
 from utils import upscale_logits, flatten_logits
+
+def get_pred_label(model, dl, device):
+    """
+        Given a model and a dataloader, return (B, H, W) tensor with the predicted
+        masks and (B, H, W) tensor with the ground truth masks for each image in
+        the dataset.
+    """
+    model.eval() 
+    preds = []
+    labels = []
+
+    for xb, yb in tqdm(dl):
+        xb = xb.to(device)
+        yb = yb.to(device)
+
+        # Perform a forward pass
+        logits = model(xb)["logits"]
+
+        # Upscale logits to original size
+        masks = upscale_logits(logits.detach().cpu())
+
+        # Normalize logits, get probabilities, and pick the label with the highest
+        # probability
+        masks = torch.argmax(torch.softmax(masks, dim=1), dim=1)
+
+        # Append batch predicted masks
+        preds.append(masks)
+
+        # Save labels/ground truth
+        labels.append(yb.detach().cpu())
+    
+    preds = torch.cat(preds, dim=0)
+    labels = torch.cat(labels, dim=0)
+
+    if (len(labels.shape) > 3):
+        labels.squeeze_(1)
+
+    return preds, labels
+
+
+def compute_iou(preds, labels, eps=1e-6):
+    """
+
+    Compute the intersection over union metric for each observation and
+    return (B,) tensor with the IoU for each observation.
+
+      Args:
+        preds: (B, H, W) tensor with the predicted masks
+        labels: (B, H, W) tensor with the ground truth masks
+
+    """
+    inter = torch.logical_and(preds, labels)
+    union = torch.logical_or(preds, labels)
+    iou = torch.div(torch.sum(inter, dim=(1, 2)),  
+                    torch.sum(union, dim=(1, 2)) + eps)
+    return iou
 
 
 def compute_intersection_over_union(logits, targets, eps=1e-6):
@@ -46,6 +103,7 @@ def compute_intersection_over_union(logits, targets, eps=1e-6):
                      (torch.sum(union, dim=(1,2)) + eps)).sum() / logits.shape[0]).item()
 
     return iou
+
 
 def validate_model(model, valid_dl, loss_fn, log_images=False, num_classes=2):
   """Compute performance of the model on the validation dataset and log a wandb.Table"""
