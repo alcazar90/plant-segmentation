@@ -5,7 +5,7 @@
     the folder structure of the dataset.
 
     TODO:
-        - Capture the label associated of each mask from the name
+        - Improve docstring for PlantDataset
         - Implement a fail-safe in case the mask_idx is not found in the mask directory
         - in the csv file the name of the column has a type in it, it should be 'id original img' instead of 'id orginal img'
 """
@@ -22,18 +22,50 @@ from torch.utils.data import Dataset
 from utils import extract_ids_from_name, extract_tag_from_name
 
 class PlantDataset(Dataset):
+    """
+        Dataset class to navigate through the images and masks in the folder.
+        The folder structure is the following:
 
-    def __init__(self, root, folder, inventary_name, transform=None):
+        root
+        ├── folder
+        │   ├── original
+        │   │   ├── 0_0.jpg
+
+        │   ├── original_labeled
+        │   │   ├── 0
+        │   │   │   ├── task-0-annotation-0-0-0.jpg
+        │   │   │   ├── task-0-annotation-0-0-1.jpg
+        │   │   │   ├── task-0-annotation-0-0-2.jpg
+
+        
+        label2id should be a dictionary with the class names and its corresponding
+        integer representation. For example:
+            label2id = {'normal': 0,
+                        'normal_cut': 1,    
+                        'noise': 2,}
+        It's important that the labels name provide in label2id are equal to the
+        labels used in the name structure of each mask to avoid key error probelms.
+    """
+    def __init__(self, 
+                 root, 
+                 folder, 
+                 inventary_name, 
+                 transform=None,
+                 label2id=None):
         """ Assuming inventary name is within the root folder """
         self.root = root
         self.folder = folder
         self.transform = transform
+        self._label2id = label2id
+
+        assert label2id is not None, 'label2id parameter must be provided (e.g. {"normal": 0, "normal_cut": 1, "noise": 2}))'
         
         # create label-to-id and id-to-label dictionaries with the
         # class names and its corresponding integer representation
-        self._label2id = {'normal': 0,
-                      'normal_cut': 1,
-                      'noise': 2,}
+        if self._label2id is None:
+            self._label2id = {'normal': 0,
+                              'normal_cut': 1,
+                              'noise': 2,}
         self._id2label = {idx: ch for ch, idx in self._label2id.items()}
 
         # read inventary csv file and store it in a pandas dataframe
@@ -102,10 +134,10 @@ class PlantDataset(Dataset):
     
     def get_masks_per_labels(self):
         """ Return the number of masks per label """
-        get_label = lambda x: re.findall(r"normal-|noise|normal_cut+", x)[0].replace('-', '')
+        pattern = ''.join([s + '-|' if idx < len(self._label2id)-1 else s for idx, s in enumerate(self._label2id.keys())])
+        get_label = lambda x: re.findall(pattern, x)[0].replace('-', '')
         out = [get_label(m) for img in self.masks for m in img]
         return np.unique(out, return_counts=True)
-
 
 
 def get_target(masks, labels, tfms, size=(250, 250), num_classes=4):
@@ -140,7 +172,6 @@ def get_target(masks, labels, tfms, size=(250, 250), num_classes=4):
     return out
 
 
-
 def get_binary_target(masks, labels, tfms, size=(250, 250)):
     """ 
         Recibe una lista de máscaras y una lista de etiquetas, retorna
@@ -164,5 +195,4 @@ def get_binary_target(masks, labels, tfms, size=(250, 250)):
         target_masks.append(torch.where(tfms(Image.open(masks[idx]).resize(size)) > 0.0, 1.0, 0.0))
     out[0,0,:,:] = torch.where(torch.cat(target_masks).sum(dim=0) > 0.0, 1.0, 0.0)
     return out
-
 
