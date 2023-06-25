@@ -177,9 +177,12 @@ def get_binary_target(masks, labels, tfms, size=(250, 250)):
         Recibe una lista de máscaras y una lista de etiquetas, retorna
         un tensor de dimensiones (1, height, width). La clase target_id
         se identificar con el entero 1, el resto es representado por
-        el entero 0 (es decir background o noise)
+        el entero 0 (es decir background o noise).
 
-        label 0 -> "normal" (ver dataset._id2label con mapping id - etiqueta)
+        Supuesto: se espera que la clase con la señal a detectar siempre sea la
+        representada por el entero 0 en el diccionario dataset._label2id. Por ejemplo,
+        si queremos detectar la clase "normal" (ver dataset._label2id), entonces:
+            - dataset._label2id -> {'normal': 0, 'normal_cut': 1, 'noise': 2}
     """
     target_id = 0
     out = torch.zeros((1, 1, size[0], size[1]))

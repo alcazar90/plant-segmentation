@@ -8,14 +8,18 @@
 """
 
 import time
+import argparse
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 
 import torch
 import torch.nn as nn
-from torchvision.transforms import ToTensor
 
 from torch.utils.data import DataLoader, random_split
+from torchvision.transforms import ToTensor
+
+from tqdm import tqdm
 
 from dataset import PlantDataset, get_binary_target
 
@@ -34,71 +38,19 @@ from transformers import (
     SegformerImageProcessor,
 )
 
-from tqdm import tqdm
-import pandas as pd
-import argparse
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 print(device)
 
-def collate_fn(batch, target_fn=get_binary_target):
-    """
-        Collate function to stack the masks as channels in the same tensor.
-        get_target: function to get the target tensor from the masks and labels
-            could be multi-labeling or binary.
-    """ 
-    # Acá se pueden agregar todas las transformacaiones adicionales de preproceso
-    # que se requieran para las máscaras. Lo única esencial es pasar una PIL.Image
-    # a tensor
-    tfms = ToTensor()
-    images = torch.cat([feature_extractor(example['image'], return_tensors='pt')['pixel_values'] for example in batch])
-    masks = [example['masks'] for example in batch]
-    labels = [example['labels'] for example in batch]
-    targets = torch.cat([target_fn(x[0], x[1], tfms, size=(512,512)) for x in zip(masks, labels)])
-
-    # transformar a 1 cuando haya un entero distinto a 0 (semantic segmentation)
-    targets = torch.where(targets > 0.0, 1.0, 0.0)
-    return images, targets
-
-
-# Hyperparameters --------------------------------------------------------------
-lr = 1e-3  #1e-3           # learning rate
-epochs = 31 #301       # number of steps to update the gradients
-eval_steps = 1       # evaluate every 10 epochs
-bs = 2              # batch-size
-rep = 1            # number of time that repet same experiment
-
-# load dataset
-dataset_type = 'cwt'
-label2id = {'normal':0, 'normal_cut': 1, 'noise': 2}
-dataset = PlantDataset('data', dataset_type, 'data_inventary.csv', label2id=label2id)
-
-# load model
-model_name = "nvidia/mit-b0"
-feature_extractor = SegformerImageProcessor.from_pretrained(model_name)
-
-
-configuration = {
-    'bs':bs,
-    'model_name': model_name,
-    'dataset_type': dataset_type,
-    'epochs':epochs,
-    'eval_steps':eval_steps,
-    'lr':lr
-}
-
-short_configuration = ''
-for configValue in configuration:
-    short_configuration = short_configuration + str(configuration[configValue])
-
+# Argparser --------------------------------------------------------------------
 parser = argparse.ArgumentParser()
-parser.add_argument("--bs", type=int, help="Batch size. Default=2")
-parser.add_argument("--model_name", help="Model Name. Default=nvidia/mit-b0")
-parser.add_argument("--dataset_type", help="Data type. Default=cwt")
-parser.add_argument("--epochs", type=int, help="Number of Epochs to train. Default=31")
-parser.add_argument("--eval_steps", type=int, help="Number of steps to get evaluation. Default=1")
-parser.add_argument("--lr", type=float, help="Use folloup question. Default=1e-3")
-parser.add_argument("--rep", type=int, help="Number of repetitions. Default=1")
+parser.add_argument("--bs", type=int, default=2, help="Batch size. Default=2")
+parser.add_argument("--model_name", type=str, default="nvidia/mit-b0", help="Model Name. Default=nvidia/mit-b0")
+parser.add_argument("--dataset_type", type=str, default="cwt", help="Data type. Default=cwt")
+parser.add_argument("--epochs", type=int, default=2, help="Number of Epochs to train. Default=2")
+parser.add_argument("--eval_steps", type=int, default=1, help="Number of steps to get evaluation. Default=1")
+parser.add_argument("--lr", type=float, default=1e-3, help="Use folloup question. Default=1e-3")
+parser.add_argument("--rep", type=int, default=1, help="Number of repetitions. Default=1")
 #parser.add_argument("--logtodb", type=str2bool, help="Log Run To DB. Default=True")
 args = parser.parse_args()
 
@@ -118,6 +70,56 @@ if args.__dict__["lr"]  is not None:
 if args.__dict__["rep"]  is not None:
     rep = args.__dict__["rep"] 
 
+
+# Load utility functions -------------------------------------------------------
+def collate_fn(batch, target_fn=get_binary_target):
+    """
+        Collate function to stack the masks as channels in the same tensor.
+        get_target: function to get the target tensor from the masks and labels
+            could be multi-labeling or binary.
+    """ 
+    # Acá se pueden agregar todas las transformaciones adicionales de preproceso
+    # que se requieran para las máscaras. Lo única esencial es pasar una PIL.Image
+    # a tensor
+    tfms = ToTensor()
+    images = torch.cat([feature_extractor(example['image'], return_tensors='pt')['pixel_values'] for example in batch])
+    masks = [example['masks'] for example in batch]
+    labels = [example['labels'] for example in batch]
+    targets = torch.cat([target_fn(x[0], x[1], tfms, size=(512,512)) for x in zip(masks, labels)])
+
+    # transformar a 1 cuando haya un entero distinto a 0 (semantic segmentation)
+    targets = torch.where(targets > 0.0, 1.0, 0.0)
+    return images, targets
+
+# Load Dataset -----------------------------------------------------------------
+if dataset_type == 'dead':
+    label2id = {'dead':0, 'dead_cut': 1, 'noise': 2}
+    dataset = PlantDataset('data', dataset_type, 'data_inventary.csv', label2id=label2id)
+elif dataset_type == 'cwt':
+    label2id = {'normal':0, 'normal_cut': 1, 'noise': 2}
+    dataset = PlantDataset('data', dataset_type, 'data_inventary.csv', label2id=label2id)
+else:
+    AssertionError("Dataset type not found")
+
+# Model Config -----------------------------------------------------------------
+model_name = "nvidia/mit-b0"
+feature_extractor = SegformerImageProcessor.from_pretrained(model_name)
+
+# Save train config ------------------------------------------------------------
+configuration = {
+    'bs':bs,
+    'model_name': model_name,
+    'dataset_type': dataset_type,
+    'epochs':epochs,
+    'eval_steps':eval_steps,
+    'lr':lr
+}
+
+short_configuration = ''
+for configValue in configuration:
+    short_configuration = short_configuration + str(configuration[configValue])
+
+print(f"Training config: {configuration}")
 
 # DataLoaders ------------------------------------------------------------------
 seed_number = 42313988
@@ -147,10 +149,11 @@ val_loader = DataLoader(val_set, batch_size=bs,
                         collate_fn = lambda x: collate_fn(x, target_fn=get_binary_target))
 
 
-# Model ----------------------------------------------------------------------- 
-#set_seed(42313988)  # for reproducibility
-stoi = {'normal': 1, 'non-detection': 0}
-itos = {1: 'normal', 0: 'non-detection'}
+# Init Model -------------------------------------------------------------------
+# 1 puede ser 'normal' o 'dead' dependiendo del dataset, pero solo consideramos
+# entrenamiento binario en este archivo
+stoi = {'detection': 1, 'non-detection': 0}
+itos = {1: 'detection', 0: 'non-detection'}
 
 model = SegformerForSemanticSegmentation.from_pretrained(
     model_name,
@@ -166,6 +169,7 @@ loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
 
+# Training loop ----------------------------------------------------------------
 # compute running time
 start_time = time.time()
 
@@ -234,7 +238,7 @@ for idx in tqdm(range(epochs)):
     # save the average loss per epoch
     lossi[idx] = cur_loss / len(train_loader)
 
-    print(f" -- Training loss at epoch {idx}: {lossi[idx]:.4f} | mIoU: {miou_mean:.4f}")
+    print(f" -- Training loss at epoch {idx}: {lossi[idx]:.4f}")
 
 # compute running time
 end_time = time.time()

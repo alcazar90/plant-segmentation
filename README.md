@@ -1,4 +1,17 @@
-## Roadmap
+# Plant Segmentation
+
+Documento en [Overleaf](https://www.overleaf.com/project/64949881099e3cb9a6fce834).
+
+## TODO
+
+- [X] Agregar _script_ `train.py` para entrenar modelos binario (vivo/muerto) para los datasets `cwt` y `dead`
+- [X] Computar la función de pérdida en conjunto de validación
+- [ ] Agregar _logging_ W&B
+- [ ] Completar secciones del documento
+- [ ] Computar Métrica _precision_ y _recall_ a partir de _threshold_ en IoU
+- [ ] Computar y gráficar curva _precision_ - _recall_ para varios _threshold_ de IoU
+- [ ] _Script_ para entrenar modelo multi-clase 
+
 
 ## Bitácora
 
@@ -36,7 +49,14 @@ Otras caracteristicas de `train.py` son:
 * Guardar la métrica IoU por observación en el conjunto de validación cada vez que se ejecuta el _pipeline_ de validación en el archivo `miou_<id>.csv` en la carpeta `results`.
 
 
-Es posible computar el mIoU a partir del archivo `miou_<id>.csv` desde el terminal usando `awk`:
+Por ejemplo, podemos entrenar un modelo de la siguiente manera:
+
+```bash
+python train.py --bs 2 --epochs 20 --eval_steps 30 --lr 1e-3 --rep 2 --dataset cwt
+python train.py --bs 2 --epochs 20 --eval_steps 30 --lr 1e-3 --rep 2 --dataset dead
+```
+
+Luego, podemos computar el mIoU a partir del archivo `miou_<id>.csv` directamente desde el terminal usando `awk`:
 
 ```bash
 awk -F',' '{sum=0; for(i=2; i<=NF; i++){sum+=$i} average=sum/(NF-1); print average}' ./results/miou_1.csv
@@ -119,24 +139,6 @@ Importante verificar luego del entrenamiento sobre el conjunto de datos completo
 Se deben tener la capacidad de computar la métrica de IoU para cada predicción, así luego ocuparlo tanto en el conjunto de validación y pruebas, para clasificar las predicciones dado cierto _threshold_ como correctas e incorrectas. Esto permitirá computar otras métricas como _precision_ y _recall_.
 
 
-
-### `playground.ipynb`
-
-En este archivo esta el desarrollo y prueba general de clases y funciones auxiliares, tanto para el conjunto de datos, su entrenamiento y evaluación.
-
-
-**TODO:**
-
-1. Escribir metodología de Edward
-1. Escribir metodología de SegFormer
-1.  Modificar `PlantDataset` para integrar observaciones (imágenes) de `cwt`, `dead` en un solo dataset y repetir los pasos (1)-(3)
-1. Entrenar enfocandonos en detección y no detección. Usar `cwt` y `dead` para segmentación.
-    - Entrenar un modelo para `cwt`
-    - Entrenar un modelo para `dead`
-1. Reportar métricas, confusion matrices, IoU, de qué clases necesitamos más datos
-1. Método de comparación de los resultados en (2) con metodología Edward
-1. Agregar otros modelos para resolver los task de semantic segmentation y instance segmentation (e.g. Mask2Former, SAM)
-
 ## Dependencias
 
 ### Segment Anything
@@ -150,13 +152,12 @@ En este archivo esta el desarrollo y prueba general de clases y funciones auxili
 - Los _checkpoints_ con los modelos se encuentran en el directorio `ckpt`.
 
 
-
 ## Citing...
 
 ```
 @misc{TBPlantSegmentation,
-  authors = {Alcázar, Cristóbal}, {Flores, Ricardo}, {, Edward}
-  title = {Plant Segmentation...},
+  authors = {Alcázar, Cristóbal}, {XYZ, Edward}, {Flores, Ricardo}
+  title = {A Transformer-based Model for Plant Cell Semantic Segmentation},
   year = {2023},
   publisher = {GitHub},
   journal = {GitHub repository},
