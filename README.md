@@ -13,7 +13,12 @@ Documento en [Overleaf](https://www.overleaf.com/project/64949881099e3cb9a6fce83
 - [ ] _Script_ para entrenar modelo multi-clase 
 
 
-## Bitácora
+## Logbook
+
+#### 25/06/2023
+
+Agregar logging de W&B...
+
 
 #### 24/06/2023
 
