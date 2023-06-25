@@ -1,23 +1,30 @@
 import wandb
-
+import numpy as np
 import matplotlib.pyplot as plt
 
-from tqdm import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from tqdm import tqdm
+
 from utils import upscale_logits, flatten_logits
 
-def get_pred_label(model, dl, device):
+def get_pred_label(model, dl, device, return_logits=False):
     """
         Given a model and a dataloader, return (B, H, W) tensor with the predicted
         masks and (B, H, W) tensor with the ground truth masks for each image in
         the dataset.
+
+        If return_logits is True, return also the (1, C, H, W) tensor with the
+        logits for each class.
     """
     model.eval() 
     preds = []
     labels = []
+
+    # create an empty list if return_logits is true in one line
+    out_logits = [] if return_logits else None
 
     for xb, yb in tqdm(dl):
         xb = xb.to(device)
@@ -25,6 +32,9 @@ def get_pred_label(model, dl, device):
 
         # Perform a forward pass
         logits = model(xb)["logits"]
+
+        if return_logits:
+            out_logits.append(logits.detach().cpu())
 
         # Upscale logits to original size
         masks = upscale_logits(logits.detach().cpu())
@@ -41,12 +51,14 @@ def get_pred_label(model, dl, device):
     
     preds = torch.cat(preds, dim=0)
     labels = torch.cat(labels, dim=0)
+    out_logits = torch.cat(out_logits, dim=0) if return_logits else None
 
     if (len(labels.shape) > 3):
         labels.squeeze_(1)
 
-    return preds, labels
-
+    if return_logits:
+       return preds, labels, out_logits
+    return preds, out_logits
 
 def compute_iou(preds, labels, eps=1e-6):
     """
@@ -64,7 +76,6 @@ def compute_iou(preds, labels, eps=1e-6):
     iou = torch.div(torch.sum(inter, dim=(1, 2)),  
                     torch.sum(union, dim=(1, 2)) + eps)
     return iou
-
 
 def compute_intersection_over_union(logits, targets, eps=1e-6):
     """ 
@@ -103,7 +114,6 @@ def compute_intersection_over_union(logits, targets, eps=1e-6):
                      (torch.sum(union, dim=(1,2)) + eps)).sum() / logits.shape[0]).item()
 
     return iou
-
 
 def validate_model(model, valid_dl, loss_fn, log_images=False, num_classes=2):
   """Compute performance of the model on the validation dataset and log a wandb.Table"""

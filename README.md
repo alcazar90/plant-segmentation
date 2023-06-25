@@ -1,29 +1,60 @@
 ## Roadmap
 
-
-
 ## Bitácora
 
-### `single-segmentation.ipynb`
+#### 24/06/2023
 
-#### 14/06/2023
+**Respecto a revisiones de la clase `PlantDataset`**. Se verificaron que las máscaras actuales para el _dataset_ `dead` estuvieran acorde a la estructura de carpeta. A pesar de que no hay cobertura completa de etiquetado, el _dataset_ funciona según lo esperado. Ahora se puede utilizar la misma clase para instanciar el _dataset_ `cwt` y `dead` con el mismo código.
 
-El archivo `single-segmentation.ipynb` se puede entrenar un modelo sobre el conjunto de datos `cwt`, solo para detectar el label `normal`. En la creación del _target_ a partir de las máscaras, se utiliza `get_binary_mask` para convertir las masks asociadas al label `normal` en `1` y el resto de labels se convierten en 0. 
+Se actualizó `PlantDataset.get_masks_per_labels` para usar una expresión regex e identificar el tipo de máscaras por el label en su nombre según el diccionario `self._label2id`, antes se encontraba hardcodeado para el _dataset_ `cwt`.
 
-En la siguiente imagen se puede ver el resultado de la segmentación _overfitteando_ un batch de 4 imágenes con label `normal`:
+```python
+def get_masks_per_labels(self):
+    """ Return the number of masks per label """
+    pattern = ''.join([s + '-|' if idx < len(self._label2id)-1 else s for idx, s in enumerate(self._label2id.keys())])
+    get_label = lambda x: re.findall(pattern, x)[0].replace('-', '')
+    out = [get_label(m) for img in self.masks for m in img]
+    return np.unique(out, return_counts=True)
+```
 
-<center>
-<img src="./assets/single-segmentation-overfitting-a-batch-without-training.png" alt="lalal" width="600"/>
+**Respecto al entrenamiento del modelo**. Se creó el archivo `train.py` donde tiene solo el código necesario para entrenar un modelo y computar métricas durante el entrenamiento. Se computa _intersection over union (IoU)_ para monitorear y realizar _early stopping_, usando el conjunto de validación. Lo anterior, es posible gracias a la función `get_pred_label` del archivo `evaluation.py` que recolecta en modo inferencia las predicciones, etqiuetas, y logits de todas las observaciones en un dataloader.
 
-<img src="./assets/single-segmentation-overfitting-a-batch-preds.png" alt="lalal" width="600"/>
+```python
+# Collect predictions, labels, and logits from all observations in a dataloader
+val_preds, val_labels, val_logits = get_pred_label(model, 
+                                                   val_loader, 
+                                                   device, 
+                                                   return_logits=True)
+```
+
+Otras caracteristicas de `train.py` son:
+
+* Utilizar modulo `argparser` para fijar los hiperparámetros y otras configuraciones de entrenamiento vía linea de comando.
+* Computar métricas de entrenamiento al final de cada _epoch_.
+* Computar métricas en validación dado X número de actualizaciones de gradientes que son monitoreados la variable `eval_steps`.
+* Guardar _checkpoints_ del modelo cada vez que se logra mejorar la métrica _mean intersection over union_ de todo el conjunto de validación.
+* Guardar la métrica IoU por observación en el conjunto de validación cada vez que se ejecuta el _pipeline_ de validación en el archivo `miou_<id>.csv` en la carpeta `results`.
 
 
-<img src="./assets/single-segmentation-overfitting-a-batch-truth.png" alt="lalal" width="600"/>
-</center>
+Es posible computar el mIoU a partir del archivo `miou_<id>.csv` desde el terminal usando `awk`:
 
-Importante verificar luego del entrenamiento sobre el conjunto de datos completos, la influencia de elementos como `normal-cut` o `noise`.
+```bash
+awk -F',' '{sum=0; for(i=2; i<=NF; i++){sum+=$i} average=sum/(NF-1); print average}' ./results/miou_1.csv
+```
 
-Se deben tener la capacidad de computar la métrica de IoU para cada predicción, así luego ocuparlo tanto en el conjunto de validación y pruebas, para clasificar las predicciones dado cierto _threshold_ como correctas e incorrectas. Esto permitirá computar otras métricas como _precision_ y _recall_.
+#### 23/06/2023
+
+Se modificó la clase `PlantDataset(Dataset)` en `dataset.py` y se agregó un nuevo parámetro para inicializar la clase, `label2id`, que permite codificar los labels a partir de los nombres de las máscaras cuando se cargan a partir de las carpetas. Esto permite mayor flexibilidad para cargar las máscaras de los labels sobre distintos tipos de experimentos, tanto como `cwt` y `dead` que disponen de diferentes labels. A continuación se muestra un ejemplo de como se inicializa la clase `PlantDataset` dependiendo el caso:
+
+```python
+# Crear dataset con plantas vivas
+label2id = {'normal': 0, 'normal_cut': 1, 'noise': 2}
+cwt_dataset = PlantDataset('data', 'cwt', 'data_inventary.csv', label2id=label2id)
+
+# Crear dataset con plantas muertas
+label2id = {'dead': 0, 'dead_cut': 1, 'noise': 2}
+dead_dataset = PlantDataset('data', 'dead', 'data_inventary.csv', label2id=label2id)
+```
 
 #### 15/06/2023
 
@@ -68,6 +99,24 @@ En la siguiente iteración, continuar mejorando la evaluación del modelo, y com
 </center>
 
 
+#### 14/06/2023
+
+El archivo `single-segmentation.ipynb` se puede entrenar un modelo sobre el conjunto de datos `cwt`, solo para detectar el label `normal`. En la creación del _target_ a partir de las máscaras, se utiliza `get_binary_mask` para convertir las masks asociadas al label `normal` en `1` y el resto de labels se convierten en 0. 
+
+En la siguiente imagen se puede ver el resultado de la segmentación _overfitteando_ un batch de 4 imágenes con label `normal`:
+
+<center>
+<img src="./assets/single-segmentation-overfitting-a-batch-without-training.png" alt="lalal" width="600"/>
+
+<img src="./assets/single-segmentation-overfitting-a-batch-preds.png" alt="lalal" width="600"/>
+
+
+<img src="./assets/single-segmentation-overfitting-a-batch-truth.png" alt="lalal" width="600"/>
+</center>
+
+Importante verificar luego del entrenamiento sobre el conjunto de datos completos, la influencia de elementos como `normal-cut` o `noise`.
+
+Se deben tener la capacidad de computar la métrica de IoU para cada predicción, así luego ocuparlo tanto en el conjunto de validación y pruebas, para clasificar las predicciones dado cierto _threshold_ como correctas e incorrectas. Esto permitirá computar otras métricas como _precision_ y _recall_.
 
 
 
@@ -99,3 +148,18 @@ En este archivo esta el desarrollo y prueba general de clases y funciones auxili
     ```
 
 - Los _checkpoints_ con los modelos se encuentran en el directorio `ckpt`.
+
+
+
+## Citing...
+
+```
+@misc{TBPlantSegmentation,
+  authors = {Alcázar, Cristóbal}, {Flores, Ricardo}, {, Edward}
+  title = {Plant Segmentation...},
+  year = {2023},
+  publisher = {GitHub},
+  journal = {GitHub repository},
+  howpublished = {\url{https://github.com/alcazar90/plant-segmentation}},
+}
+```

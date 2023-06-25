@@ -48,8 +48,6 @@ def extract_tag_from_name(string) -> str:
     """
     return string.split('/')[-1].split('-')[-2]
 
-
-
 def upscale_logits(logit_outputs, res=512):
   """Escala los logits a (4W)x(4H) para recobrar dimensiones originales del input"""
   return nn.functional.interpolate(
@@ -71,7 +69,6 @@ def set_seed(seed: int = 42313988) -> None:
     torch.backends.cudnn.benchmark = False
     os.environ["PYTHONHASHSEED"] = str(seed)
     print(f"Random seed set as {seed}")
-
 
 def display_batch_masks(bmasks, caption=None):
     """
