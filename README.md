@@ -7,6 +7,7 @@ Documento en [Overleaf](https://www.overleaf.com/project/64949881099e3cb9a6fce83
 - [X] Agregar _script_ `train.py` para entrenar modelos binario (vivo/muerto) para los datasets `cwt` y `dead`
 - [X] Computar la función de pérdida en conjunto de validación
 - [X] Agregar _logging_ W&B
+- [ ] Actualizar notebook `single-segmentation.ipynb` uso de función `get_pred_label`, y en cualquier otra parte que se utilice
 - [ ] Completar secciones del documento
 - [ ] Computar Métrica _precision_ y _recall_ a partir de _threshold_ en IoU
 - [ ] Computar y gráficar curva _precision_ - _recall_ para varios _threshold_ de IoU
@@ -31,6 +32,15 @@ Documento en [Overleaf](https://www.overleaf.com/project/64949881099e3cb9a6fce83
         </tr>
     </tbody>
 </table>
+
+* **Nota importante**, se realizó modificación en la función `get_pred_label`, ahora devuelve las imagenes y probabilidades aparte de la etiqueta y la predicción. Se aprovecha de computar varias cosas con la misma función, y evitar redundancia en recorrer el dataloader.
+
+```python
+# ahora
+val_img, val_labels, val_preds, val_probs = get_pred_label(model, val_loader, device)
+# antes                                                           
+preds, labels = get_pred_label(model, val_loader, device)
+```
 
 #### 24/06/2023
 
