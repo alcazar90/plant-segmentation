@@ -70,6 +70,11 @@ if args.__dict__["lr"]  is not None:
 if args.__dict__["rep"]  is not None:
     rep = args.__dict__["rep"] 
 
+# W&B logging -----------------------------------------------------------------
+wandb_log = True
+wandb_project = 'plant-segmentation'
+wandb_run_name = dataset_type + str(time.time())
+wandb_log_img = True
 
 # Load utility functions -------------------------------------------------------
 def collate_fn(batch, target_fn=get_binary_target):
@@ -168,8 +173,28 @@ model=model.to(device)
 loss_fn = nn.CrossEntropyLoss()
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 
+# Estimate loss ----------------------------------------------------------------
+@torch.no_grad()
+def estimate_loss():
+    out = {}
+    model.eval()
+    for split in [train_loader, val_loader]:
+        losses = torch.zeros(len(split))
+        for idx, (xb, yb) in enumerate(split):
+            xb = xb.to(device)
+            yb = yb.to(device)
+            logits = model(xb)["logits"]
+            losses[idx] = loss_fn(upscale_logits(logits), yb.squeeze(1).to(torch.long)).item()
+        out['train' if split == train_loader else 'val'] = losses.mean().item()
+    model.train()
+    return out
 
 # Training loop ----------------------------------------------------------------
+# logging
+if wandb_log:
+    import wandb
+    wandb.init(project=wandb_project, name=wandb_run_name, config=configuration)
+
 # compute running time
 start_time = time.time()
 
@@ -208,15 +233,38 @@ for idx in tqdm(range(epochs)):
 
         if steps%eval_steps == 0:
             # Compute mean intersection over union in the valset
-            val_preds, val_labels, val_logits = get_pred_label(model, 
-                                                               val_loader, 
-                                                               device, 
-                                                               return_logits=True)
+            val_img, val_labels, val_preds, val_probs = get_pred_label(model, 
+                                                                       val_loader, 
+                                                                       device)
             val_set_iou = compute_iou(val_preds, val_labels)
             miou_mean =  torch.mean(val_set_iou).item()
-            miou.append(val_set_iou.detach().cpu().tolist())
-            val_lossi.append(loss_fn(upscale_logits(val_logits), 
-                                     val_labels.squeeze(1).to(torch.long)).item())
+            val_set_iou = val_set_iou.detach().cpu()
+            miou.append(val_set_iou.tolist())
+            losses = estimate_loss()
+            val_lossi.append(losses['val'])
+            
+            # logging
+            if wandb_log:
+                wandb.log({
+                    'train/loss': losses['train'],
+                    'val/loss': losses['val'],
+                    'epoch': idx,
+                    'steps': steps,
+                    'mIoU': miou_mean,
+                    'val_iou': wandb.Histogram(val_set_iou.detach().cpu().tolist()),
+                })
+                if wandb_log_img:
+                    table = wandb.Table(columns=["image", "mask", "pred_mask", "probs", "iou"])
+                    for img, mask, pred, prob, iou in zip(val_img, val_labels, val_preds, val_probs, val_set_iou):
+                        plt.imshow(prob);
+                        plt.axis("off");
+                        plt.tight_layout();
+                        table.add_data(wandb.Image(img.permute(1,2,0).numpy()), 
+                                       wandb.Image(mask.view(img.shape[1:]).unsqueeze(2).numpy()), 
+                                       wandb.Image(np.uint8(pred.unsqueeze(2).numpy())*255),
+                                       wandb.Image(plt),
+                                       iou)
+                    wandb.log({"val_table/predictions_table":table}, commit=False)
             
             # save check point
             if miou_mean > best_miou:
@@ -245,6 +293,6 @@ end_time = time.time()
 print(f"--- {end_time - start_time} seconds ---")
 
 
-df_miou = pd.DataFrame(miou)
+#df_miou = pd.DataFrame(miou)
 
-df_miou.to_csv('./results/miou_'+ str(rep)+'.csv')
+#df_miou.to_csv('./results/miou_'+ str(rep)+'.csv')

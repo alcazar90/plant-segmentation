@@ -6,7 +6,7 @@ Documento en [Overleaf](https://www.overleaf.com/project/64949881099e3cb9a6fce83
 
 - [X] Agregar _script_ `train.py` para entrenar modelos binario (vivo/muerto) para los datasets `cwt` y `dead`
 - [X] Computar la función de pérdida en conjunto de validación
-- [ ] Agregar _logging_ W&B
+- [X] Agregar _logging_ W&B
 - [ ] Completar secciones del documento
 - [ ] Computar Métrica _precision_ y _recall_ a partir de _threshold_ en IoU
 - [ ] Computar y gráficar curva _precision_ - _recall_ para varios _threshold_ de IoU
@@ -15,10 +15,22 @@ Documento en [Overleaf](https://www.overleaf.com/project/64949881099e3cb9a6fce83
 
 ## Logbook
 
-#### 25/06/2023
+#### 27/06/2023
 
-Agregar logging de W&B...
+* Se actualizó el dataset en [ruta compartida en Drive](https://drive.google.com/drive/folders/1KltqueU8bUoAnXMqhKifbpMULspNwoZm?usp=drive_link) con todas las masks del dataset dead 
+* Se habilitó en el _script_ `train.py` _logging_ con W&B, para _trackear_ métricas durante entrenamiento cada vez que se utiliza una configuración distinta de hiperparámetros. Se puede ver el proyecto de W&B [aquí](https://wandb.ai/alcazar90/plant-segmentation?workspace=user-alcazar90), y a continuación algunos de las visualizaciones que se pueden ver en el _dashboard_:
 
+![](./assets/wandb_table.png)
+
+<table border=0 align=center>
+    <tbody>
+        <tr>
+     	    <td width="33%" align="center"> <img src="./assets/wandb_miou_plot.png"></td>
+   	      <td width="33%" align="center"> <img src="./assets/wandb_val_loss.png"></td>
+   	      <td width="33%" align="center"> <img src="./assets/wandb_train_loss.png"></td>
+        </tr>
+    </tbody>
+</table>
 
 #### 24/06/2023
 
