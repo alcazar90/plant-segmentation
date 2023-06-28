@@ -4,14 +4,19 @@ Documento en [Overleaf](https://www.overleaf.com/project/64949881099e3cb9a6fce83
 
 ## TODO
 
-- [X] Agregar _script_ `train.py` para entrenar modelos binario (vivo/muerto) para los datasets `cwt` y `dead`
-- [X] Computar la función de pérdida en conjunto de validación
-- [X] Agregar _logging_ W&B
-- [ ] Actualizar notebook `single-segmentation.ipynb` uso de función `get_pred_label`, y en cualquier otra parte que se utilice
-- [ ] Completar secciones del documento
-- [ ] Computar Métrica _precision_ y _recall_ a partir de _threshold_ en IoU
-- [ ] Computar y gráficar curva _precision_ - _recall_ para varios _threshold_ de IoU
-- [ ] _Script_ para entrenar modelo multi-clase 
+- [X] Agregar _script_ `train.py` para entrenar modelos binario (vivo/muerto) para los datasets `cwt` y `dead`.
+- [X] Computar la función de pérdida en conjunto de validación.
+- [X] Agregar _logging_ W&B.
+- [ ] Actualizar notebook `single-segmentation.ipynb` uso de función `get_pred_label`, y en cualquier otra parte que se utilice.
+- [ ] Guardar métrica mIoU de las observaciones en _training_.
+- [ ] Usar mascaras de clases que no se van a predecir en modelo single-detection, para evitar que el modelo prediga mascaras de clases que no se van a predecir, y que afectan la métrica IoU. Usar las mascaras para apagar lo que no queremos ver de la imagen input.
+- [ ] En vez de reportar mIoU, computar una ponderación de IoU por la cantidad de clases en cada máscara (e.g. IoU de `normal` que tiene 3 señales, versus una mascara `normal` con solo 1).
+- [ ] Completar secciones del documento.
+- [ ] Computar Métrica _precision_ y _recall_ a partir de _threshold_ en IoU.
+- [ ] Computar y gráficar curva _precision_ - _recall_ para varios _threshold_ de IoU.
+- [ ] Ver metodologia de Edward y comparar métricas de ambas metodologías.
+- [ ] _Script_ para entrenar modelo multi-clase.
+- [ ] Crear clase meta-modelo para abstraer los pasos en training y evaluation, y poder reutilizar código, pero usando distintos modelos como MASK, SegFormer, etc.
 
 
 ## Logbook

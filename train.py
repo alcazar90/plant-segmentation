@@ -203,7 +203,8 @@ val_lossi = []
 miou = []
 steps = 0
 best_miou = -np.inf
-for idx in tqdm(range(epochs)):
+#for idx in tqdm(range(epochs)):
+for idx in range(epochs):
     cur_loss = 0.0
     for xb, yb in train_loader:
         model.train()
@@ -277,11 +278,11 @@ for idx in tqdm(range(epochs)):
                 'state_dict': model.state_dict(),
                 'optimizer': optimizer.state_dict(),
                 }
-                torch.save(ckpt, './ckpt/single-segmentation.pth')
+                torch.save(ckpt, f'./ckpt/{dataset_type}-single-segmentation.pth')
                 print("Checkpoint saved!")
 
             # Print current mIoU
-            print(f" -- Validation loss at step {val_lossi[-1]:.4f} | mIoU at step #{steps}: {miou_mean:.4f}")
+            print(f" Epoch {idx}-- Validation loss at step #{steps}: {val_lossi[-1]:.4f} | mIoU at step #{steps}: {miou_mean:.4f}")
 
     # save the average loss per epoch
     lossi[idx] = cur_loss / len(train_loader)
@@ -293,6 +294,6 @@ end_time = time.time()
 print(f"--- {end_time - start_time} seconds ---")
 
 
-#df_miou = pd.DataFrame(miou)
+df_miou = pd.DataFrame(miou)
 
-#df_miou.to_csv('./results/miou_'+ str(rep)+'.csv')
+df_miou.to_csv('./results/miou_'+ str(dataset_type) + str(rep)+'.csv')
