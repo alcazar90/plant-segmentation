@@ -7,19 +7,146 @@ Documento en [Overleaf](https://www.overleaf.com/project/64949881099e3cb9a6fce83
 - [X] Agregar _script_ `train.py` para entrenar modelos binario (vivo/muerto) para los datasets `cwt` y `dead`.
 - [X] Computar la función de pérdida en conjunto de validación.
 - [X] Agregar _logging_ W&B.
-- [ ] Actualizar notebook `single-segmentation.ipynb` uso de función `get_pred_label`, y en cualquier otra parte que se utilice.
-- [ ] Guardar métrica mIoU de las observaciones en _training_.
+- [X] Actualizar notebook `single-segmentation.ipynb` uso de función `get_pred_label`, y en cualquier otra parte que se utilice.
+- [X] Guardar métrica mIoU de las observaciones en _training_.
 - [ ] Usar mascaras de clases que no se van a predecir en modelo single-detection, para evitar que el modelo prediga mascaras de clases que no se van a predecir, y que afectan la métrica IoU. Usar las mascaras para apagar lo que no queremos ver de la imagen input.
 - [ ] En vez de reportar mIoU, computar una ponderación de IoU por la cantidad de clases en cada máscara (e.g. IoU de `normal` que tiene 3 señales, versus una mascara `normal` con solo 1).
 - [ ] Completar secciones del documento.
 - [ ] Computar Métrica _precision_ y _recall_ a partir de _threshold_ en IoU.
 - [ ] Computar y gráficar curva _precision_ - _recall_ para varios _threshold_ de IoU.
-- [ ] Ver metodologia de Edward y comparar métricas de ambas metodologías.
+- [x] Cargar máscaras creadas con metodología actual de Edward usando `PlantDataset`.
+- [X] Computar metricas de IoU para mascaras propuestas por el modelo y las mascaras creadas con metodología actual de Edward.
 - [ ] _Script_ para entrenar modelo multi-clase.
 - [ ] Crear clase meta-modelo para abstraer los pasos en training y evaluation, y poder reutilizar código, pero usando distintos modelos como MASK, SegFormer, etc.
 
 
 ## Logbook
+
+#### 14/08/2023
+
+  * Analizando las máscaras alternativas obtenidas por método tradicional de Edward, pero para el subconjunto `dead`. Se encontró que las máscaras alternativas no son blanco y negro, sino más bien una imagen en escala de grises. A diferencia de las máscaras alternativa spara el subconjunto `cwt`. Esto se puede visualizar en el _notebook_ `playground.ipynb`, sección Evaluate Benchmark, Dead dataset. **Será necesario usar un _threshold_ para determinar cuando un _pixel_ es blanco o negro en las máscaras alternativas**.
+  * Lo anterior propone un _trade-off_ entre incorporar regiones que solo es ruido y dejar zonas que identificar los objetos de interes en la imagen. Se utilizó un _threshold_ dentro de `collate_fn` en el script `benchmarking.py`:
+  ```python
+      if alternative_masks:
+        if dataset_type == 'dead':
+            # apply threshold to get a binary masks (dead alternative mask -> grayscale)
+            benchmark_masks = torch.where(benchmark_masks > 0.6, 1.0, 0.0)
+        return images, targets, benchmark_masks
+  ```
+  * Revisar observación `cwt4_55.jpg` del conjunto de entrenamiento que tanto la predicción como la máscara del método alternativo tiene un valor de 0.
+  * Adicional al csv con los resultados por observación, se generaron imagenes del input, máscaras, predicciones y método alternativo para crear un diagrama con la siguiente estructura para las observaciones en validación:
+
+<center>
+<img src="./assets/results-cwt-val-diagram.png" alt="lalal" width="600"/>
+</center>
+
+   * Repensar mejor la lógica de la configuración para crear los conjuntos de entrenamiento/validación para los distintos datasets (i.e. `cwt`, `dead`) que se comunique entre el script `train.py` y `benchmarking.py` para evitar errores de consistencia. Por ahora, todo se delega a nivel de los argumentos con los que se llama el script que debe proveer el usuario con el mismo _seed_ y _checkpoint_ del modelo que se entreno sobre la partición de entrenamiento/validación generada por el _seed_.
+
+
+#### 12/08/2023
+
+  * Se modificó la función `get_pred_label` para que recolecte del dataloader entregado como input las máscaras alternativas cuando esten disponibles por `PlantDataset(..., alternative_masks=True)`.
+  * Se mejoro la documentación de la función `get_pred_label` para que sea más clara su utilización.
+  * Se actualizó el uso de `get_pred_label` en el notebook `single-segmentation.ipynb` para que retornara el output según las nuevas modificaciones.
+  * El script `benchmarking.py` carga un checkpoint, el dataset con las máscaras alternativas, y computa las métricas de IoU para las máscaras alternativas y las predicciones del modelo con la ayuda de la función `get_pred_label`. Obtiene un identificador para cada observación, y guarda las métricas IoU por observación, tanto las reportadas por el modelo como las propuestas por las máscaras alternativas, en un archivo `.csv` en la carpeta `results` con el nombre `benchmarking_<id>.csv`. Además, se obtiene el número de máscaras asociadas a cada observación y cuantas de estas corresponden a la señal a detectar (e.g. viva). El archivo con los resultados tiene la siguiente estructura:
+
+    ```
+    image_name,iou_model,iou_alternative,num_masks,normal_num_masks,split,model_ckpt
+    cwt1_10.jpg,0.642349,0.53557384,4,1,train,ckpt/cwt-single-segmentation.pth
+    cwt4_76.jpg,0.12558275,0.10311527,7,1,train,ckpt/cwt-single-segmentation.pth
+    cwt4_55.jpg,0.0,0.0,5,1,train,ckpt/cwt-single-segmentation.pth
+    cwt3_55.jpg,0.5076142,0.27609223,9,1,train,ckpt/cwt-single-segmentation.pth
+    cwt3_16.jpg,0.55149746,0.48964947,4,1,train,ckpt/cwt-single-segmentation.pth
+    cwt3_14.jpg,0.5455779,0.59192973,3,1,train,ckpt/cwt-single-segmentation.pth
+    ```
+
+#### 23/07/2023
+
+  * Se creó el archivo `benchmarking.py` que será el encargado de computar metricas sobre el conjunto del dataset especificado, cargando un _checkpoint_ de modelo ajustado por el script `train.py`. 
+  * Adicionalmente, este _script_ deberá poder computar las metricas utilizando máscaras obtenidas por un método alternativo usando las modificaciones explicadas en la entrada 22/07/2023.
+
+#### 22/07/2023
+
+* Se agregó funcionalidad en `PlantDataset` para cargar máscaras adicionales computadas por un método externo (e.g. método tradicional). 
+* El proposito de esta funcionalidad es evaluar las métricas de un modelo entrenado, y compararlas con las máscaras computadas por el método tradicional. 
+* Para cargar las máscaras adicionales, se debe instanciar la clase `PlantDatset` de la siguiente forma:
+
+```python
+from dataset import PlantDataset, extract_ids_from_name
+
+label2id = {'normal': 0, 'normal_cut': 1, 'noise': 2}
+dataset = PlantDataset('data',
+                       'cwt', 
+                       'data_inventary.csv', 
+                       label2id=label2id, 
+                       alternative_masks=True)
+```
+
+* Luego, el método `__getitem__` de la clase `PlantDataset` devuelve un diccionario con las máscaras adicionales, y se puede acceder a ellas por su nombre:
+
+```python
+        if self.alternative_masks:
+            alternative_mask_path = os.path.join(self.root, self.folder, 'original_labeled_imageJ_mask', self.alternative_masks[idx])
+            return {
+                'image': image,
+                'masks': masks_path,
+                'labels': labels,
+                'alternative_masks': Image.open(alternative_mask_path)
+            }
+```
+
+```python
+dataset[10]['alternative_masks']
+```
+
+* Nota importante de la implementación, se asume que las máscaras tradicionales tienen estructura de carpeta igual a las imagenes del input (i.e. `dataset[10][]`). Es decir, tanto la carpeta `subset/original` como `subset/original_labeled_imageJ_mask` tienen la misma cantidad de imagenes, solo que sus nombres son distintos. Por ejemplo, `cwt1_1.jpg` y `cwt1_mask_1.jpg`. Esta es la razón de los indices utilizados para extraer los digitos en el caso de las másracaras cuando se instancia la clase:
+
+```python
+        if alternative_masks: 
+            self.alternative_masks = []
+            alternative_masks_folder = os.listdir(os.path.join(self.root, self.folder, 'original_labeled_imageJ_mask'))
+            alternative_masks_folder.sort(key=lambda x: (int(re.findall(r'\d+', x.split('_')[0])[0]), 
+                                                int(re.findall(r'\d+', x.split('_')[2])[0])))
+```
+
+- Se modifica la función `collate_fn` para crear DataLoaders adicionando las máscaras tradicionales, y aplicando las transformaciones a estas para que sean
+tensores.
+
+```python
+def collate_fn(batch, target_fn=get_binary_target, alternative_masks=False):
+    """
+        Collate function to stack the masks as channels in the same tensor.
+        get_target: function to get the target tensor from the masks and labels
+            could be multi-labeling or binary.
+        alternative_masks: if True, return the alternative masks for benchmarking
+          in addition to the images, targets.
+    """ 
+    tfms = ToTensor()
+    images = torch.cat([feature_extractor(example['image'], return_tensors='pt')['pixel_values'] for example in batch])
+    if alternative_masks:
+        # Resize to 512x512, then convert to grayscale and tensor. Finally, add 
+        # a dimension for the channel (=1) with .unsqueeze(1) -> (B, 1, H, W)
+        tfms_benchmark_masks = Compose([Grayscale(num_output_channels=1), ToTensor()])
+        benchmark_masks = torch.cat([tfms_benchmark_masks(example['alternative_masks'].resize((512, 512))).unsqueeze(1) for example in batch])
+    masks = [example['masks'] for example in batch]
+    labels = [example['labels'] for example in batch]
+    targets = torch.cat([target_fn(x[0], x[1], tfms, size=(512,512)) for x in zip(masks, labels)])
+
+    # transformar a 1 cuando haya un entero distinto a 0 (semantic segmentation)
+    targets = torch.where(targets > 0.0, 1.0, 0.0)
+    if alternative_masks:
+        return images, targets, benchmark_masks
+    return images, targets
+```
+
+#### 17/07/2023
+
+* Incorporar forma para cargar las máscaras del método tradicional (base) en la clase `PlantDataset`, y poder utilizarla para evaluar las métricas.
+* Reunión de Ricardo, 
+  * Reunión de Edward, submascaras de la clase `normal_cut` y `noise`, apagarlos de la etiqueta. 
+  * Usar el filtro anterior, 
+  * Apagar con mascaras validacion
+
 
 #### 27/06/2023
 
