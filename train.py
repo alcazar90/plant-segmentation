@@ -1,10 +1,19 @@
 #!/usr/bin/env python
 # coding: utf-8
 """
-    File: train.py
+    This training script is to train an image segmentation using a pre-trained
+    SegFormer model from HuggingFace on the Plant dataset. To run the script in
+    the command line:
 
-    Train a Single Segmentation Model using SegFormer from HuggingFace Transformers
-    and the Plant dataset.
+        python train.py --bs 2 --dataset_type cwt --epochs 2 --eval_steps 1 --lr 1e-3 --rep 1
+
+    The available flags are:
+        --bs: batch size
+        --dataset_type: 'cwt' or 'dead'
+        --epochs: number of epochs to train
+        --eval_steps: number of steps to compute evaluation metrics on the devset
+        --lr: learning rate
+        --rep: number of repetitions to run the model and save results
 """
 
 import time
@@ -83,9 +92,6 @@ def collate_fn(batch, target_fn=get_binary_target):
         get_target: function to get the target tensor from the masks and labels
             could be multi-labeling or binary.
     """ 
-    # Acá se pueden agregar todas las transformaciones adicionales de preproceso
-    # que se requieran para las máscaras. Lo única esencial es pasar una PIL.Image
-    # a tensor
     tfms = ToTensor()
     images = torch.cat([feature_extractor(example['image'], return_tensors='pt')['pixel_values'] for example in batch])
     masks = [example['masks'] for example in batch]
@@ -99,10 +105,12 @@ def collate_fn(batch, target_fn=get_binary_target):
 # Load Dataset -----------------------------------------------------------------
 if dataset_type == 'dead':
     label2id = {'dead':0, 'dead_cut': 1, 'noise': 2}
-    dataset = PlantDataset('data', dataset_type, 'data_inventary.csv', label2id=label2id)
+    dataset = PlantDataset('data', dataset_type, 'data_inventary.csv',
+                           label2id=label2id, alternative_masks=False)
 elif dataset_type == 'cwt':
     label2id = {'normal':0, 'normal_cut': 1, 'noise': 2}
-    dataset = PlantDataset('data', dataset_type, 'data_inventary.csv', label2id=label2id)
+    dataset = PlantDataset('data', dataset_type, 'data_inventary.csv',
+                           label2id=label2id, alternative_masks=False)
 else:
     AssertionError("Dataset type not found")
 
@@ -145,12 +153,10 @@ train_set, val_set = random_split(dataset, [train_size, val_size])
 print(train_set)
 
 # Create data loaders for the training and validation sets
-train_loader = DataLoader(train_set, batch_size=bs, 
-                          shuffle=True, num_workers=0,
+train_loader = DataLoader(train_set, batch_size=bs, shuffle=True, num_workers=0,
                           collate_fn = lambda x: collate_fn(x, target_fn=get_binary_target))
 
-val_loader = DataLoader(val_set, batch_size=bs, 
-                        shuffle=False, num_workers=0,
+val_loader = DataLoader(val_set, batch_size=bs, shuffle=False, num_workers=0,
                         collate_fn = lambda x: collate_fn(x, target_fn=get_binary_target))
 
 
