@@ -51,12 +51,14 @@ class PlantDataset(Dataset):
                  folder, 
                  inventary_name, 
                  transform=None,
-                 label2id=None):
+                 label2id=None,
+                 alternative_masks=False):
         """ Assuming inventary name is within the root folder """
         self.root = root
         self.folder = folder
         self.transform = transform
         self._label2id = label2id
+        self.alternative_masks = alternative_masks
 
         assert label2id is not None, 'label2id parameter must be provided (e.g. {"normal": 0, "normal_cut": 1, "noise": 2}))'
         
@@ -87,8 +89,19 @@ class PlantDataset(Dataset):
         files_in_folder.sort(key=lambda x: (int(re.findall(r'\d+', x.split('_')[0])[0]), 
                                             int(re.findall(r'\d+', x.split('_')[1])[0])))
 
-        for img in files_in_folder:
+        # alternative_masks is a boolean flag to indicate if we want to add alternative masks
+        # provided by the dataset (computed by other method). Mainly used for evaluation purposes.
+        if self.alternative_masks: 
+            self.benchmark_masks = []
+            alternative_masks_folder = os.listdir(os.path.join(self.root, self.folder, 'original_labeled_imageJ_mask'))
+            alternative_masks_folder.sort(key=lambda x: (int(re.findall(r'\d+', x.split('_')[0])[0]), 
+                                                int(re.findall(r'\d+', x.split('_')[2])[0])))
+
+        for i, img in enumerate(files_in_folder):
             self.images.append(img)
+
+            if self.alternative_masks:
+                self.benchmark_masks.append(alternative_masks_folder[i])
 
             # Get the id of the image's mask folder from the inventary (self.idx_table)
             # TODO: in the csv file the name of the column has a type in it, 
@@ -106,6 +119,7 @@ class PlantDataset(Dataset):
             labels = [self._label2id[extract_tag_from_name(m)] for m in masks]
             self.labels.append(labels)
 
+
     def __len__(self):
         """ Return the length of the dataset (# of images) """
         return len(self.images)
@@ -122,6 +136,14 @@ class PlantDataset(Dataset):
         masks_path = [str(os.path.join(self.root, self.folder, 'original_labeled', self.mask_idx_folder[idx], m)) for m in self.masks[idx]]
         labels = self.labels[idx]
 
+        if self.alternative_masks:
+            alternative_mask_path = os.path.join(self.root, self.folder, 'original_labeled_imageJ_mask', self.benchmark_masks[idx])
+            return {
+                'image': image,
+                'masks': masks_path,
+                'labels': labels,
+                'alternative_masks': Image.open(alternative_mask_path)
+            }
         return {
                 'image': image, 
                 'masks': masks_path, 
@@ -198,4 +220,3 @@ def get_binary_target(masks, labels, tfms, size=(250, 250)):
         target_masks.append(torch.where(tfms(Image.open(masks[idx]).resize(size)) > 0.0, 1.0, 0.0))
     out[0,0,:,:] = torch.where(torch.cat(target_masks).sum(dim=0) > 0.0, 1.0, 0.0)
     return out
-
