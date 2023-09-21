@@ -15,12 +15,14 @@
 
     Example:
         python benchmarking.py --bs 2 --dataset_type cwt
+        python benchmarking.py --bs 2 --dataset_type dead --model_checkpoint "ckpt/dead-single-segmentation.pth"
 
     Important: the dataset split are defined strictly by the random seed used to
     create the indices. It must be equal to the one used to train the model.
 """
 
 import time
+import datetime
 import argparse
 import numpy as np
 import pandas as pd
@@ -62,6 +64,7 @@ parser.add_argument('--model_checkpoint', type=str, default='ckpt/cwt-single-seg
 parser.add_argument("--dataset_type", type=str, default="cwt", help="Data type. Default=cwt")
 parser.add_argument('--inventary_name', type=str, default='inventary.csv', help='name of the inventary csv file')
 parser.add_argument('--seed', type=int, default=42313988, help='seed for reproducibility')
+parser.add_argument('--show_n_images', type=int, default=None, help='number of images to show in the grid')
 args = parser.parse_args()
 
 if args.__dict__["bs"]  is not None:
@@ -74,6 +77,8 @@ if args.__dict__["inventary_name"]  is not None:
     inventary_name = args.__dict__["inventary_name"]
 if args.__dict__["seed"]  is not None:
     seed_number = args.__dict__["seed"] 
+if args.__dict__["show_n_images"]  is not None:
+    show_n_images = args.__dict__["show_n_images"] 
 
 
 
@@ -241,11 +246,17 @@ results = pd.concat([train_df, val_df], ignore_index=True)
 results['model_ckpt'] = model_checkpoint
 
 # Save results in a csv file
-results.to_csv(f'./results/benchmarking-{model_checkpoint.split("/")[-1].split(".")[0]}.csv', index=False)
+results.to_csv(f'./results/benchmarking-{model_checkpoint.split("/")[-1].split(".")[0]}-{datetime.datetime.now().isoformat()[:-16]}.csv', index=False)
 print(results)
 
 # Save input images, prediction masks, and alternative masks in a grid for 
 # validation observations
+if show_n_images:
+    # Hardcoded to show the last 5 images
+    val_images = val_images[show_n_images:]
+    val_preds = val_preds[show_n_images:]
+    val_labels = val_labels[show_n_images:]
+    val_alternative = val_alternative[show_n_images:]
 
 # Inverse transform the images to display them
 grid = torchvision.utils.make_grid(
@@ -259,19 +270,21 @@ grid_inv = grid * torch.tensor(feature_extractor.image_std).unsqueeze(1).unsquee
 fig = plt.figure(figsize=(16, 12))
 plt.imshow(grid_inv.permute(1,2,0))
 plt.axis('off')
-plt.title("Input images")
-plt.savefig(f'./results/benchmarking-input-{model_checkpoint.split("/")[-1].split(".")[0]}.png'
+#plt.title("Input images")
+plt.savefig(f'./results/benchmarking-input-{model_checkpoint.split("/")[-1].split(".")[0]}-{datetime.datetime.now().isoformat()[:-16]}.png'
             ,dpi=320, bbox_inches='tight')
 
-display_batch_masks(val_preds.unsqueeze(1), caption="Predicted masks")
-plt.savefig(f'./results/benchmarking-preds-{model_checkpoint.split("/")[-1].split(".")[0]}.png'
+#display_batch_masks(val_preds.unsqueeze(1), caption="Predicted masks")
+display_batch_masks(val_preds.unsqueeze(1), caption=None)
+plt.savefig(f'./results/benchmarking-preds-{model_checkpoint.split("/")[-1].split(".")[0]}-{datetime.datetime.now().isoformat()[:-16]}.png'
             ,dpi=320, bbox_inches='tight')
 
-display_batch_masks(val_labels.unsqueeze(1), caption="Ground truth masks")
-plt.savefig(f'./results/benchmarking-labels-{model_checkpoint.split("/")[-1].split(".")[0]}.png'
+#display_batch_masks(val_labels.unsqueeze(1), caption="Ground truth masks")
+display_batch_masks(val_labels.unsqueeze(1), caption=None)
+plt.savefig(f'./results/benchmarking-labels-{model_checkpoint.split("/")[-1].split(".")[0]}-{datetime.datetime.now().isoformat()[:-16]}.png'
             ,dpi=320, bbox_inches='tight')
 
-display_batch_masks(val_alternative.unsqueeze(1), caption="Alternative method")
-plt.savefig(f'./results/benchmarking-alternative-{model_checkpoint.split("/")[-1].split(".")[0]}.png'
+#display_batch_masks(val_alternative.unsqueeze(1), caption="Alternative method")
+display_batch_masks(val_alternative.unsqueeze(1), caption=None)
+plt.savefig(f'./results/benchmarking-alternative-{model_checkpoint.split("/")[-1].split(".")[0]}-{datetime.datetime.now().isoformat()[:-16]}.png'
             ,dpi=320, bbox_inches='tight')
-
