@@ -1,8 +1,18 @@
-# Plant Segmentation
+<h1 align="center">
+  &nbsp;SegPlantFormer<br> A Transformer-Based Model for Plant Semantic Segmentation&nbsp;
+</h1>
 
-Documento en [Overleaf](https://www.overleaf.com/project/64949881099e3cb9a6fce834).
+----
 
-## TODO
+<a href="https://alkzar.cl/EVIC23_poster_segplantformer.pdf" target="_blank">[EVIC23 Poster]</a>
+<a href="https://api.wandb.ai/links/alcazar90/7k7k0yph" target="_blank">[W&B blogpost]</a>
+<a href="https://github.com/alcazar90/plant-segmentation/blob/main/single-segmentation.ipynb" target="_blank">[Usage]</a>
+
+About this project;
+
+> TBC
+
+## Future Work
 
 - [X] Agregar _script_ `train.py` para entrenar modelos binario (vivo/muerto) para los datasets `cwt` y `dead`.
 - [X] Computar la función de pérdida en conjunto de validación.
@@ -324,12 +334,12 @@ Se deben tener la capacidad de computar la métrica de IoU para cada predicción
 - Los _checkpoints_ con los modelos se encuentran en el directorio `ckpt`.
 
 
-## Citing...
+## Citing
 
 ```
 @misc{TBPlantSegmentation,
-  authors = {Alcázar, Cristóbal}, {XYZ, Edward}, {Flores, Ricardo}
-  title = {A Transformer-based Model for Plant Cell Semantic Segmentation},
+  authors = {Alcázar, Cristóbal}, {Chocano, Edward}, {Flores, Ricardo}
+  title = {SegPlantFormer: A Transformer-based Model for Plant Semantic Segmentation},
   year = {2023},
   publisher = {GitHub},
   journal = {GitHub repository},
