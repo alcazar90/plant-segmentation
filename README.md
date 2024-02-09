@@ -1,6 +1,9 @@
 <h1 align="center">
-  &nbsp;SegPlantFormer<br> A Transformer-Based Model for Plant Semantic Segmentation&nbsp;
+  &nbsp;SegPlantFormer 🌱🔬<br>
 </h1>
+<h2 align="center">
+A Transformer-Based Model for Plant Semantic Segmentation&nbsp;
+</h2>
 
 ----
 
