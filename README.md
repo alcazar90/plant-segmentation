@@ -26,7 +26,7 @@ About this project;
 
 <figure style="background-color: white">
   <img src="./assets/fig-2-data-processing-dia.png" alt="Fig. 2 - Data processing diagram">
-  <figcaption><small>Figure 2. <b>Left:</b> The results of the laboratory experiments are captured in a large stacked image (25036 × 18954px) with high resolution microscopic imaging. The white squares with labels Aand B are samples that were taken. <b>Right:</b> Smaller image patches from the samples, such as (A1) and (B1), are the input images for the model. Then, we manually handcraft masks with semantic information from these images regarding the plant shapes associated with alive/dead cell labels (A2 and B2), elaboratin the dataset D</small></figcaption>
+  <figcaption><small>Figure 2.<b>Dataset collection process</b>. The results of the laboratory experiments are represented by a high-resolution stacked image  (25036x18954 pixels) captured using microscopic imaging, shown as raw data. The white squares labeled <b>(A)</b> and <b>(B)</b> indicate the regions from which samples were extracted. Smaller image patches (2519x1895 pixels) extracted from these samples, labeled <b>(A1)</b> and <b>(B1)</b>, serve as the input for the model (denoted X). Masks with semantic information, such as  <b>(A2)</b> and <b>(B2)</b>, are manually created to annotate the plant shapes with corresponding alive/dead cell labels, forming the target y. Note that each image may contain multiple masks depending on the number of entities present within the image patches.</small></figcaption>
 </figure>
 
 
